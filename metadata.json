@@ -1,0 +1,5 @@
+{
+  "name": "Hamro Converter",
+  "description": "A production-ready Bikram Sambat (BS) to Gregorian (AD) date conversion system with high accuracy and transparency.",
+  "requestFramePermissions": []
+}
