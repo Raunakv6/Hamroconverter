@@ -152,9 +152,33 @@ export const BS_CALENDAR_DATA: Record<number, number[]> = {
   2100: [31, 32, 31, 32, 32, 31, 30, 30, 29, 30, 30, 30],
 };
 
+import NepaliDate from 'nepali-date-converter';
+
 // Anchor Date: BS 2082-12-25 = AD 2026-04-08
 const ANCHOR_BS: BSDate = { year: 2082, month: 12, day: 25 };
 const ANCHOR_AD = new Date(2026, 3, 8); // Note: JS months are 0-indexed (April is 3)
+
+// Dynamically correct the calendar data for years 2000-2089 using nepali-date-converter
+try {
+  for (let y = 2000; y <= 2089; y++) {
+    const monthDays: number[] = [];
+    for (let m = 0; m < 12; m++) {
+      const d = new NepaliDate(y, m, 1);
+      let days = 1;
+      while (true) {
+        d.setDate(days + 1);
+        if (d.getMonth() !== m) {
+          break;
+        }
+        days++;
+      }
+      monthDays.push(days);
+    }
+    BS_CALENDAR_DATA[y] = monthDays;
+  }
+} catch (e) {
+  console.error("Failed to dynamically populate correct calendar data", e);
+}
 
 /**
  * Validates if a BS date is within the supported range and has valid month/day
@@ -198,6 +222,16 @@ export function bsToAd(bsDate: BSDate): Date {
   if (!isValidBSDate(bsDate)) {
     throw new Error("Invalid BS Date");
   }
+  
+  if (bsDate.year >= 2000 && bsDate.year <= 2089) {
+    try {
+      const nd = new NepaliDate(bsDate.year, bsDate.month - 1, bsDate.day);
+      return nd.toJsDate();
+    } catch (e) {
+      // fallback
+    }
+  }
+
   const daysDiff = getDaysFromAnchorBS(bsDate);
   const adDate = new Date(ANCHOR_AD);
   adDate.setDate(adDate.getDate() + daysDiff);
@@ -208,6 +242,26 @@ export function bsToAd(bsDate: BSDate): Date {
  * Converts AD Date to BS Date
  */
 export function adToBs(adDate: Date): BSDate {
+  // Let's first check if the date can be converted using nepali-date-converter.
+  // This library supports dates within BS 2000 to BS 2089 (which corresponds to AD 1943-04-14 to 2033-04-13).
+  const minAD = new Date(1943, 3, 14);
+  const maxAD = new Date(2033, 3, 13);
+  if (adDate >= minAD && adDate <= maxAD) {
+    try {
+      const nd = new NepaliDate(adDate);
+      const year = nd.getYear();
+      if (year >= 2000 && year <= 2089) {
+        return {
+          year: year,
+          month: nd.getMonth() + 1,
+          day: nd.getDate()
+        };
+      }
+    } catch (e) {
+      // fallback
+    }
+  }
+
   const anchorTotalDays = getTotalDaysFromStart(ANCHOR_BS);
   const daysDiff = Math.floor((adDate.getTime() - ANCHOR_AD.getTime()) / (1000 * 60 * 60 * 24));
   let absoluteDays = anchorTotalDays + daysDiff;
